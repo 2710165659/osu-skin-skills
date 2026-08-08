@@ -1,0 +1,65 @@
+{
+  "skill_name": "osu-skin",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "这个皮肤没有 skininfo.json，我想把它的 7K Mania 混进另一个皮肤。先告诉我你需要确认什么，再给出修改计划。",
+      "expected_output": "必须先询问 stable 或 lazer；同时询问目标 keycount、源/目标路径和是否新建输出目录，不能直接假定客户端。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "这个目录里有 skininfo.json，但是我不确定 lazer 里 ranking-A 为什么还是默认图。检查时从哪里开始？",
+      "expected_output": "判定为 lazer，并从 stable-vs-lazer、元素 client 和实际加载行为开始排查，不把大号 ranking 图简单当作可覆盖元素。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Mania 的轨道看起来太长了，帮我改一下。",
+      "expected_output": "因为用户没有说投或投皮，先消歧谱面 hold 时长、舞台可见区域、判定线位置或图片尺寸；不能直接修改某个字段。",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "这张 PNG 看起来透明，但游戏里有白边。怎么检查？",
+      "expected_output": "先检查 alpha 通道、透明/半透明像素和 alpha=0 像素的 RGB，再考虑 fringe 修复；不能只根据图片查看器背景判断。",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "把 A 皮肤的 7K 完整合并到 B，B 的 4K、std 和音效都不要动。",
+      "expected_output": "读取 Mania 和混皮参考，运行 mania-analyze 提取 Keys: 7 的完整依赖（逐列、默认回退、HD、动画、H/L/T），复制并写后复检。",
+      "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "我把 cursor.png 换了但完全没变化，目录没有 skininfo.json。",
+      "expected_output": "先询问 stable/lazer，再检查当前选中皮肤、模式、文件路径、@2x/SD、客户端支持和缓存；不在未确认客户端前给确定结论。",
+      "files": []
+    },
+    {
+      "id": 7,
+      "prompt": "把这个投改为 50px。",
+      "expected_output": "把投理解为 Mania Hold Body，把 50px 理解为投皮图片顶部连续 50 行纯透明区域；读取 mania-hold-body，先运行 image-inspect，再运行 mania-throw-length；不询问泛化的长度含义，也不把它当作 HitPosition 或 skin.ini 长度字段。",
+      "files": []
+    },
+    {
+      "id": 8,
+      "prompt": "给我生成一个 40px 宽、投 50px 的球皮，高度 32800px。",
+      "expected_output": "生成 Hold Body 投皮：40px 画布、顶部 50 行透明、半圆 cap、对称左右留白、body 延伸到最后一行且无底部留白；按用户指定保持 32800px 总高并做像素级验证，不主动展开渲染数学推导。",
+      "files": []
+    },
+    {
+      "id": 9,
+      "prompt": "把生成器输出的 mania-note1L.png 替换进我这个 7K 皮肤。",
+      "expected_output": "把投皮识别为 Hold Body，并使用数据库标准的 NoteImage#L 映射；先确认客户端和 7K 段，读取实际 NoteImage#H/L/T path 与图片，说明本次映射，证据不足时提问，不能按后缀直接覆盖。",
+      "files": []
+    },
+    {
+      "id": 10,
+      "prompt": "lazer 里我的 Mania 按键和投皮都被横向压扁了，ColumnWidth 是 30。",
+      "expected_output": "读取 lazer-image-scaling；把实际列宽计算为 ColumnWidth*1.6=48px，检查 KeyImage 和 NoteImage#L 原图宽、SD/@2x、WidthForNoteHeightScale、NoteBodyStyle 与实际 path，给出各元素的目标宽度，不把问题误判为投的长度。",
+      "files": []
+    }
+  ]
+}
