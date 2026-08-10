@@ -1,0 +1,13 @@
+osu-skin-skills uses two licenses according to file type:
+
+1. Code is licensed under the MIT License. See LICENSE-CODE.
+   This covers Python source files, pyproject.toml, CI workflows, and other
+   executable or build-related code unless a file states otherwise.
+
+2. Knowledge content is licensed under the Creative Commons Attribution 4.0
+   International License (CC BY 4.0). See LICENSE-KNOWLEDGE.
+   This covers SKILL.md, references, eval prompts, and the bundled database
+   authored for this project unless a file or record states otherwise.
+
+Third-party names, trademarks, source material, and contributed assets remain
+subject to their respective owners' rights and licenses.

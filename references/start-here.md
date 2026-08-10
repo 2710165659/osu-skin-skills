@@ -2,7 +2,7 @@
 
 本文件是入口路由。先匹配意图，再加载对应 reference。除非任务跨多个域，不要加载全部文件。
 
-读取匹配的 reference，并运行其中直接列出的 `osu-skin <子命令>`。命令不可用时先从 Skill 根目录运行 `python -m pip install -e .`；脚本返回 TODO 时按 reference 的同一检查项继续执行。
+读取匹配的 reference，并运行其中直接列出的 `osu-skin <子命令>`；首次选择工具时先读取 `tools.md` 的工具总表和按需求选择表。命令不可用时先从 Skill 根目录运行 `python -m pip install -e .`；命令返回非零退出码时读取结构化错误，不把部分输出当成成功。
 
 ## 0. 请求预检
 
@@ -28,6 +28,15 @@
 4. 用户声明与文件证据冲突：停止写入并询问哪个作为目标。
 5. `MainHUDComponents.json`、`SongSelect.json`、`Playfield.json`、目录名、扩展名和“看起来像 lazer”都不能替代确认。
 
+### 视觉故障的文件闸门
+
+用户问“为什么变形”“怎么修复”但没有提供实际皮肤时，第一轮先索要：
+
+1. 可读取的皮肤目录、`.osk`/zip，或至少 `skin.ini` 与实际相关 PNG；
+2. Mania 问题对应的 keycount。
+
+用户的文字描述不能证明实际加载的 path、SD/`@2x`、动画帧、alpha 或 `NoteBodyStyle`。拿到文件前只说明后续检查步骤，不猜文件名、尺寸、字段值或直接给修复参数。用户已说明“stable 移到 lazer”时，客户端信息已经足够，不再追问客户端。
+
 ## 1. 意图路由表
 
 | 用户信号 | 意图 | 首先读取 | 第一个动作 | 主要输出 |
@@ -35,10 +44,12 @@
 | “这个文件/画面上的东西是什么” | 元素解释 | `element-map.md` | 查询元素、标签和客户端 | 文件/命令、用途、回退 |
 | “换了但没变化/还是默认” | 不生效诊断 | `troubleshooting.md`、`stable-vs-lazer.md` | 确认客户端和当前皮肤 | 证据链、原因排序、修复 |
 | “把某字段改成某值” | INI 修改 | `field-glossary.md` | 查 section、类型、默认值、限制 | 字段级变更和验证 |
+| “改 skininfo.json/HUD/Playfield/SongSelect 布局”“组件位置/锚点/Settings 不生效” | lazer 布局 JSON | `lazer-layout-json.md` | 查询 JSON 文件、分组、完整 `Type` 和字段合法值 | JSON 变更、回退影响和静态/实测验证 |
 | “透明/白边/黑边/放大/改色” | 图片处理 | `image-animation.md` | 读取像素尺寸、模式、alpha | 检查指标或新图片 |
-| “lazer 图片压扁/拉长/比例不对/投皮重复” | lazer 缩放诊断 | `lazer-image-scaling.md` | 检查实际素材、列宽和缩放字段 | X/Y 缩放原因和目标尺寸 |
+| “stable 移到 lazer 后变形”“lazer 图片压扁/拉长/比例不对/投皮重复” | 客户端迁移/缩放诊断 | `stable-vs-lazer.md`、`lazer-image-scaling.md` | 先取得皮肤和 Mania keycount，再检查实际素材；确认后按 L 或 Key 类型调用专用修复命令 | 加载差异、X/Y 缩放原因和目标尺寸 |
 | “动画不播放/删动画/instafade” | 动画处理 | `image-animation.md` | 识别 base、`-0`、帧组、FPS | 帧组变更和加载解释 |
-| “把 A 的皮肤混到 B” | 资源组混合 | `merge-recipes.md`、`element-map.md` | 定义资源组和依赖闭包 | 新目录、复制清单、来源 |
+| “把 A 的皮肤混到 B” | 资源组混合 | `merge-recipes.md`、`element-map.md` | 先按数据库建立全部候选文件族的消费者矩阵 | 新目录、复制清单、来源与共享确认 |
+| “把 std/taiko/catch/Mania 改成这个皮肤的” | 单模式替换 | `merge-recipes.md`、`element-map.md` | 先按数据库建立消费者集合，再分离专属与共享资源 | 专属复制清单、范围外消费者和覆盖确认 |
 | “把 4K/7K/某模式合进来” | Mania 合并 | `mania.md`、`merge-recipes.md` | 确认客户端和 keycount | 段、资源和路径合并 |
 | “投/投皮/投的长度/投 50px/球皮/菱形皮/渐变皮” | Mania 投皮生成或修改 | `mania-hold-body.md` | 把数值解释为顶部透明行；判断是生成器还是已有皮肤 | 投皮 PNG、映射说明和像素验证 |
 | “Mania 列宽/判定线/舞台位置” | Mania 几何/视觉 | `mania.md`、`field-glossary.md` | 确认 keycount 和具体几何对象 | 字段、坐标和图像修改 |
@@ -81,7 +92,7 @@
 - `已确认`：由用户声明、文件存在性、数据库记录或工具指标直接证明。
 - `客户端规则`：由 stable/lazer 规则或数据库 `client`/notes 说明。
 - `高概率`：症状和证据吻合，但没有运行客户端验证。
-- `待确认`：需要用户截图、客户端选择、分辨率、谱面或更多文件。
+- `待确认`：需要用户补充客户端选择、分辨率、谱面或更多文件。
 
 不要把 `高概率` 写成确定事实。
 
@@ -93,4 +104,6 @@
 2. Mania 请求没有键数时：处理哪个 keycount？
 3. 没有“投/投皮”语境的普通“长度/大小/位置”有多种含义时：指谱面行为、图片尺寸还是舞台坐标？
 4. 混皮没有范围时：保留哪些模式、界面和音效？
-5. 有覆盖/删除风险时：生成新目录还是修改原目录？
+5. 任意单模式替换包含跨模式图片或全局配置时：列出其在其他模式的作用后，询问是否覆盖？
+6. 有覆盖/删除风险时：生成新目录还是修改原目录？
+7. Mania 中的“尾/面尾/后面尾/收尾”变形但没有皮肤证据时：请提供皮肤和 keycount；不能先把“尾”判成 `NoteImage#T`。

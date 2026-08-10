@@ -1,6 +1,7 @@
-"""Unified TODO CLI for the osu! skin skill."""
+"""Unified CLI for the osu! skin skill."""
 
 import argparse
+import sys
 from collections.abc import Sequence
 
 from . import (
@@ -9,7 +10,10 @@ from . import (
     osu_skin_image_inspect,
     osu_skin_image_transform,
     osu_skin_mania_analyze,
+    osu_skin_mania_lazer_hold_body_fix,
+    osu_skin_mania_lazer_key_fix,
     osu_skin_mania_throw_length,
+    osu_skin_selfcheck,
 )
 
 
@@ -19,7 +23,10 @@ COMMANDS = {
     "image-transform": osu_skin_image_transform,
     "audio-inspect": osu_skin_audio_inspect,
     "mania-analyze": osu_skin_mania_analyze,
+    "mania-lazer-hold-body-fix": osu_skin_mania_lazer_hold_body_fix,
+    "mania-lazer-key-fix": osu_skin_mania_lazer_key_fix,
     "mania-throw-length": osu_skin_mania_throw_length,
+    "selfcheck": osu_skin_selfcheck,
 }
 
 
@@ -34,6 +41,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     args = build_parser().parse_args(argv)
     return args.handler(args)
 

@@ -1,5 +1,5 @@
 {
-  "skill_name": "osu-skin",
+  "skill_name": "osu-skin-skills",
   "evals": [
     {
       "id": 1,
@@ -40,7 +40,7 @@
     {
       "id": 7,
       "prompt": "把这个投改为 50px。",
-      "expected_output": "把投理解为 Mania Hold Body，把 50px 理解为投皮图片顶部连续 50 行纯透明区域；读取 mania-hold-body，先运行 image-inspect，再运行 mania-throw-length；不询问泛化的长度含义，也不把它当作 HitPosition 或 skin.ini 长度字段。",
+      "expected_output": "把投理解为 Mania Hold Body，把 50px 理解为投皮图片顶部连续 50 行纯透明区域；读取 mania-hold-body，解析实际 NoteImage#L PNG，先 dry-run 再运行 mania-throw-length；不询问泛化的长度含义，也不把它当作 HitPosition 或 skin.ini 长度字段。",
       "files": []
     },
     {
@@ -58,7 +58,61 @@
     {
       "id": 10,
       "prompt": "lazer 里我的 Mania 按键和投皮都被横向压扁了，ColumnWidth 是 30。",
-      "expected_output": "读取 lazer-image-scaling；把实际列宽计算为 ColumnWidth*1.6=48px，检查 KeyImage 和 NoteImage#L 原图宽、SD/@2x、WidthForNoteHeightScale、NoteBodyStyle 与实际 path，给出各元素的目标宽度，不把问题误判为投的长度。",
+      "expected_output": "先取得皮肤文件并确认 keycount、实际 KeyImage/KeyImageD 与 NoteImage#L path；读取 lazer-image-scaling。确认是原始素材被 lazer 拉伸后，Key/KeyD 使用 mania-lazer-key-fix，投皮 L 使用 mania-lazer-hold-body-fix，实际列宽为 ColumnWidth*1.6=48px；两者都先 dry-run。说明这些命令不能还原已经依赖 stable 客户端拉伸的外观，不把问题误判为投的长度。",
+      "files": []
+    },
+    {
+      "id": 11,
+      "prompt": "这个投皮当前投 120px，改成投 50px，图片尺寸不要变。底部怎么办？",
+      "expected_output": "将内容整体上移 70 行并移除原顶部透明行；宽高保持不变；底部新增的 70 行使用变换前原图最后 1000 行从头循环填充。先 dry-run，再执行 mania-throw-length 并验证顶部恰为 50 行透明。",
+      "files": []
+    },
+    {
+      "id": 12,
+      "prompt": "这个皮肤从 stable 移到 lazer 后为什么变形了？",
+      "expected_output": "目标客户端已经是 lazer，不重复询问客户端；先索要实际皮肤目录/.osk/zip 或相关文件，并确认具体模式；不要索要游戏内截图。取得文件后检查元素是否被 lazer 消费、实际加载的 SD/@2x、原始尺寸、fallback、相关 skin.ini 字段及 X/Y 非等比缩放。没有文件证据时不能直接批量缩放整套皮肤。",
+      "files": []
+    },
+    {
+      "id": 13,
+      "prompt": "改一下我的皮肤，taiko 改为这个皮肤的，其他模式保留。",
+      "expected_output": "先区分 taiko 专属资源、带多个模式标签的资源、全模式/全局资源以及 skin.ini 全局字段。只可直接计划复制 taiko 专属项；对实际存在的 lighting、sliderscorepoint、spinner 等共享组，必须说明它们还会影响哪些模式，再询问逐组覆盖还是保留目标版本；不得整段覆盖 General、Colours、Fonts。",
+      "files": []
+    },
+    {
+      "id": 14,
+      "prompt": "把 A 皮肤的 7K 换进 B，B 的 4K 保留。",
+      "expected_output": "不仅按 mania 模式标签判断；必须分析 B 的 7K 和 4K 段并对待覆盖文件建立反向引用。若 note、key、stage、判定图或其他 path 同时被 4K 引用，要明确说明覆盖会改变 4K 并逐组询问；未确认时应重命名 7K 资源并改写 7K path，不能直接覆盖共享文件。",
+      "files": []
+    },
+    {
+      "id": 15,
+      "prompt": "如何修复皮肤从stable移到lazer后面尾变形的问题",
+      "expected_output": "目标客户端已经明确为 lazer。第一轮必须优先索要实际皮肤目录/.osk/zip（或 skin.ini 与 H/L/T 图片）和 Mania keycount；不要索要游戏内截图，也不能在没有文件时猜 NoteImage#T、尺寸、NoteBodyStyle 或先给缩放方案。取得文件后运行 mania-analyze 解析有效 NoteBodyStyle、实际 H/L/T、fallback、SD/@2x 和动画，再用 image-inspect 检查实际 NoteImage#T alpha。T 全透明时判定为投皮收尾，可见面尾来自 NoteImage#L cap，保持 T 全透明并检查 L 的顶部 cap 与重复接缝；lazer 中 NoteBodyStyle 为 0 时拉伸，非 0 时统一使用类似从顶部叠加的独立效果，不能按内部枚举名在多个非 0 值间盲试；修复时调用 mania-lazer-hold-body-fix，按实际列宽等比缩放 L，再从输入原图底部最多 1000 行循环补到 32800；只有 T 存在可见像素时才诊断普通 Hold Tail 的尺寸、Y 翻转和 flip。命令不能还原已经依赖 stable 客户端拉伸的外观。",
+      "files": []
+    },
+    {
+      "id": 16,
+      "prompt": "lazer 里我的 mania-key1 和 mania-key1D 被横向拉伸了，帮我修复。",
+      "expected_output": "先索要皮肤文件并确认 Keys:N 与 ColumnWidth，解析实际 KeyImage/KeyImageD path 和 SD/@2x。确认素材本身未被预先拉伸后，对每个实际文件调用 mania-lazer-key-fix；扫描 alpha>0 包围框，移除顶部透明留白，按目标宽度（ColumnWidth*1.6，@2x 再乘2）Lanczos3 等比缩放主体，保留左侧和底部留白数量。全透明 Key 跳过。先 dry-run，不覆盖原文件。说明不能修复依赖 stable 客户端拉伸的外观。",
+      "files": []
+    },
+    {
+      "id": 17,
+      "prompt": "lazer 的投皮面尾被拉长了，NoteImage#T 是全透明，怎么修？",
+      "expected_output": "先索要皮肤文件并确认 Keys:N，运行 mania-analyze 确认实际 NoteImage#L、ColumnWidth 和有效 NoteBodyStyle；用 image-inspect 再确认 T 全透明。确认是原始 L 被 lazer 拉伸后，调用 mania-lazer-hold-body-fix：目标宽度 round(ColumnWidth*1.6)，按宽度等比缩放原图，缩放后高于32800裁底，低于32800取输入原图底部最多1000行按同倍率缩放后循环补底，输出目标宽度x32800。保持 T 全透明，先 dry-run；不能用它还原 stable 已经依赖客户端拉伸的外观。",
+      "files": []
+    },
+    {
+      "id": 18,
+      "prompt": "帮我混一个 lazer 皮肤：std 用 A，taiko 用 B，mania 4K 用 C，5/6/7K 用 D；其他 key 不管。图片只保留 @2x。",
+      "expected_output": "先按目标客户端对各来源和目标的候选文件族查询数据库并建立消费者矩阵，不能把 A/std 当全局基础皮肤。必须分别询问或保留目标的 cursor、score、combo、菜单、通用音频、Fonts、General/Colours 共享字段和元数据；combo 明确由 std/catch 使用，cursor 在 lazer 只由 std 游玩使用。按每个目标 Mania keycount 分析完整依赖和共享 path。只保留 @2x 前必须验证实际加载族、动画和透明占位，不能删除 SD 后产生默认回退。",
+      "files": []
+    },
+    {
+      "id": 19,
+      "prompt": "把这个包含 4K、5K、6K、7K 的 stable Mania 皮肤混进 lazer，顺便适配，投皮长度都改成 200。",
+      "expected_output": "必须对 4/5/6/7K 分别运行 mania-analyze --dependencies，检查实际 NoteImage#L、KeyImage#/KeyImage#D、普通 note/H/T、stage、ColumnWidth、WidthForNoteHeightScale、SD/@2x 和共享路径。计算每个 keycount 的 ColumnWidth*1.6 目标宽度；同一路径若需要不同宽度则拆分文件并重写 path。确认拉伸后先 dry-run 再执行 L/Key 专用修复，随后设置 200 行顶部透明并复查尺寸与透明行；不能只改投皮长度就宣称 lazer 适配完成。",
       "files": []
     }
   ]

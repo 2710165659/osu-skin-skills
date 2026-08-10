@@ -1,6 +1,6 @@
 # 图片、alpha、@2x 和动画处理手册
 
-检查图片时，运行 `osu-skin image-inspect "<路径>" --transparent-rgb --json`；检查动画时追加 `--animation`。执行通用图片变换前，运行 `osu-skin image-transform "<路径>" --operation <操作> --output "<输出>" --dry-run`。遇到“投 50px”时停止通用变换，改读 `mania-hold-body.md`。
+工具用途：`image-inspect` 只读检查尺寸、格式、alpha、透明边/透明行、SD/`@2x` 和动画帧；`image-transform` 执行普通图片的缩放、裁切、重着色和 HD/SD 互转。检查图片时，运行 `osu-skin image-inspect "<路径>" --transparent-rgb --json`；检查动画时追加 `--animation`。执行通用图片变换前，运行 `osu-skin image-transform "<路径>" --operation <操作> --output "<输出>" --dry-run`，其中 `<操作>` 只能是 `scale`、`crop`、`recolor`、`hd-to-sd` 或 `sd-to-hd`。确认计划后移除 `--dry-run`；覆盖已有输出时显式追加 `--overwrite`。遇到“投 50px”时停止通用变换，改读 `mania-hold-body.md`。完整工具选择见 `tools.md`。
 
 用户明确使用 lazer 且症状是压扁、拉长、比例错误或重复时，再读取 `lazer-image-scaling.md`；不要只按原图纵横比推断显示尺寸。
 

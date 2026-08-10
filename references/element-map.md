@@ -1,25 +1,10 @@
 # 元素、文件名和资源组映射
 
-定位元素时，运行 `osu-skin db-query "<文件名、命令或描述>" --json`。核对图片时运行 `osu-skin image-inspect "<路径>" --json`；核对音频时运行 `osu-skin audio-inspect "<路径>" --json`。处理 Mania 逐列 path 时，改读 `mania.md` 并运行其中的命令。
+工具用途：`db-query` 返回元素、标签、客户端和专属详情；`image-inspect` 只读核对图片实际指标；`audio-inspect` 只读核对音频格式和族。定位元素时，运行 `osu-skin db-query "<文件名、命令或描述>" --json`。核对图片时运行 `osu-skin image-inspect "<路径>" --json`；核对音频时运行 `osu-skin audio-inspect "<路径>" --json`。处理 Mania 逐列 path 时，改读 `mania.md` 并运行其中的命令。完整工具选择见 `tools.md`。
 
 ## 数据库查询协议
 
-先定位候选，再返回完整联表信息。最小查询应包括：
-
-```sql
-SELECT e.id, e.filename, e.command, e.section, e.type,
-       e.category, e.subcategory, e.description, e.notes, e.client,
-       i.blend_mode, i.origin, i.suggested_size, i.hd_supported,
-       i.beatmap_skinnable,
-       a.pattern, a.frame_range, a.fps, a.loops, a.rule,
-       GROUP_CONCAT(DISTINCT et.tag) AS tags
-FROM elements e
-LEFT JOIN image_details i ON i.element_id = e.id
-LEFT JOIN animation a ON a.element_id = e.id
-LEFT JOIN element_tags et ON et.element_id = e.id
-WHERE e.id = ? OR e.filename LIKE ? OR e.command = ?
-GROUP BY e.id;
-```
+`db-query` 普通搜索已经返回主表、专属详情、标签定义和 `term_matches`。需要跨元素或消费者矩阵时，运行 `database.md` 中对应的 SQL 配方。
 
 用户给文件名时先标准化：
 
@@ -49,7 +34,7 @@ GROUP BY e.id;
 |---|---|---|
 | 打击圈/圆圈 | `hitcircle`, `hitcircleoverlay`, `approachcircle` | `[Fonts] HitCirclePrefix/Overlap`、数字图、HD |
 | 滑条 | `sliderb`, `sliderfollowcircle`, `sliderendcircle`, `sliderscorepoint`, `reversearrow` | `SliderBorder`、`SliderBall`、球动画、谱面覆盖 |
-| 光标和尾迹 | `cursor`, `cursormiddle`, `cursortrail` | CursorCentre/Expand/Rotate、帧组、HD |
+| 光标和尾迹 | `cursor`, `cursormiddle`, `cursortrail` | CursorCentre/Expand/Rotate、帧组、HD；lazer 中皮肤光标只在 std 游玩时渲染，其他模式和界面使用原生光标 |
 | 跟随点 | `followpoint`, `followpoint-0..n` | `has_0_hides_base`、帧序、blend mode |
 | 转盘 | `spinner-background`, `spinner-circle`, `spinner-approachcircle`, `spinner-metre`, `spinner-rpm` | 新旧转盘样式、Spinner 配置、stable/lazer |
 | 打击结果 | `hit0`, `hit50`, `hit100`, `hit300`, `hit100k`, `hit300k` | 动画 base rule、数字前缀、谱面覆盖 |
@@ -83,6 +68,7 @@ GROUP BY e.id;
 2. 复制组时收集 base、HD、帧、配置字段、默认回退和依赖音效。
 3. 用户只点名一个文件时，先说明它可能依赖哪些同组文件；不要扩大修改范围而不告知用户。
 4. 数据库标签 `谱面可自定义` 表示谱面可能覆盖皮肤文件；诊断时必须检查 beatmap skin。
+5. 任意混皮或单模式替换时，先为每个候选文件族运行数据库查询；提示词里的模式名称只定义目标范围，不能定义文件归属。检查 `client`、`std模式`、`太鼓模式`、`接水果模式`、`mania模式`、`全模式`、`全局界面`、description/notes，再检查 `skin.ini` path/prefix 和其他 Mania keycount 的实际引用。目标范围外存在任何消费者、多个来源候选或数据库未知项时，说明其使用位置并单独确认覆盖。
 
 ## 找不到元素时
 
@@ -92,4 +78,4 @@ GROUP BY e.id;
 2. 查询中文描述、分类、标签和官方 wiki 的同义词；
 3. 检查是否是程序化 UI 或客户端自带资源；
 4. 检查是否是谱面内置 skin 或 beatmap 文件；
-5. 把结果标为“未确认”，请求截图或文件名。
+5. 把结果标为“未确认”，请求实际文件名、路径或皮肤目录。

@@ -1,6 +1,6 @@
 # 研究证据到行为规则
 
-复核数据库结论时，运行 `osu-skin db-query "<元素或命令>" --json`。复核图片指标时，运行 `osu-skin image-inspect "<路径>" --json`。记录外部来源 URL、访问日期、版本或 commit，不把脚本 TODO 输出当成证据。
+复核数据库结论时，运行 `osu-skin db-query "<元素或命令>" --json`。复核图片指标时，运行 `osu-skin image-inspect "<路径>" --json`。记录外部来源 URL、访问日期、版本或 commit；脚本输出证明本地数据库或文件状态，不能替代外部来源证据。
 
 本文件让模型直接使用已整理的外部证据。新增证据按“来源 -> 观察 -> 可迁移规则 -> 适用任务 -> 链接”记录。
 
@@ -16,6 +16,14 @@
 - 大于 9K 的 key layout 需要额外支持，不能硬编码到 4K/7K。
 
 规则：任何 Mania 合并先生成依赖闭包和冲突映射，再复制资源并改 path；写后按 keycount、路径、HD、动画和 H/L/T 复检。
+
+## Mania legacy 布局
+
+来源：按目标版本的 osu!lazer Mania 实际布局行为核验。
+
+观察：纵向位置字段从 480 高 legacy 坐标换算到 768 高舞台；StageBottom 随滚动方向贴合舞台顶部或底部并统一缩放 `1.6`；左右边框保持宽度并独立拉伸高度；轨道宽度由列宽与列间距组成，列线在列内绘制。
+
+规则：字段坐标以 `field-glossary.md` 为准，舞台/列几何以 `mania.md` 为准，图片缩放与 StageBottom 高度公式以 `lazer-image-scaling.md` 为准；数据库的单个 origin 或 suggested_size 不能替代这些客户端布局规则。
 
 ## instafade 和数字
 

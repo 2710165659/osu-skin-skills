@@ -1,6 +1,6 @@
 # osu! skin 音频处理手册
 
-检查音频时，运行 `osu-skin audio-inspect "<音频或皮肤目录>" --json`。检查 hitsound 资源族时追加 `--family`；检查循环音效时追加 `--loop`。
+工具用途：`audio-inspect` 只读检查编码、时长、采样率、声道、hitsound 族和 WAV 循环边界，不修改音频。运行 `osu-skin audio-inspect "<音频或皮肤目录>" --json`；检查 hitsound 资源族时追加 `--family`；检查循环音效时追加 `--loop`。完整工具选择见 `tools.md`。
 
 ## 先查元素
 

@@ -1,159 +1,91 @@
 ---
 name: osu-skin-skills
 description: >-
-  处理 osu! stable 与 osu! lazer 皮肤：解释和修改 skin.ini，定位皮肤元素，
-  诊断文件不生效、默认回退、透明 PNG 白边、@2x/SD、动画和音效问题，混合皮肤或
-  Mania 键位，制作或修改投皮、调整 Mania 列布局，制作 lite 版和打包 .osk。用户提到 skin、
-  skin.ini、.osk、hitcircle、cursor、hitsound、PNG 透明、@2x、instafade、Mania
-  键位、投、投皮、投 50px、球皮、菱形皮、渐变皮或列位置时都触发。遇到客户端、
-  模式、keycount 或修改目标不明确时先提问。
+  此技能用于处理 osu! stable 和 osu! lazer 皮肤，包括查询和解释皮肤元素与配置、诊断资源不生效
+  和默认回退、编辑 skin.ini 与 lazer 布局 JSON、处理 PNG 动画和音效、迁移或混合不同模式与
+  Mania 键数，以及制作投皮、轻量化皮肤和打包 .osk。凡用户需要分析、修改、排查或组合 osu!
+  皮肤，尤其涉及 stable/lazer 差异、HUD/Playfield 布局、hitsound、长按素材或 keycount 时，
+  都应使用此技能。
 ---
 
 # 执行入口
 
-触发后按顺序执行，不要先通读全部 references。
+把本文件作为任务路由和安全边界；领域细节按下表读取。每次触发按以下顺序执行：
 
-1. 读取 `references/start-here.md`，选择与用户请求对应的入口。
-2. 确认输入类型：皮肤目录、`.osk`/zip、`skin.ini`、图片、音频、截图或纯问题。
-3. 确认客户端、游戏模式、Mania keycount、源路径、目标路径和是否允许覆盖。
-4. 读取入口指定的 reference；按该 reference 写明的 CLI 调用脚本，再读取 `assets/osu_skin.db` 中与当前问题相关的记录。
-5. 读取真实文件建立事实；不要只凭文件名或记忆回答。
-6. 输出简短计划；需要写入时先列将新增、修改、删除的文件和字段。
-7. 执行修改后复查路径、字段、尺寸、alpha、动画、客户端差异和 fallback。
-8. 报告结论、证据、实际变更、验证结果、警告和未确认信息。
+1. 读取 `references/start-here.md`，按意图选择最少的 reference。
+2. 确认输入类型、皮肤根目录、客户端、模式/keycount、源/目标路径和覆盖策略。
+3. 运行入口 reference 指定的只读检查；首次使用或数据库异常时先运行 `osu-skin selfcheck --json`。
+4. 读取数据库和真实文件建立证据，再给计划；不要用文件名、目录名或模型记忆推断未确认的消费者。
+5. 写入前列出文件、字段、路径和回退影响；写后复查并报告未确认项。
 
-## 必须提问的情况
+## 硬性闸门
 
-### 客户端
-
-按以下规则判断 stable/lazer：
-
-1. 用户明确说 `stable` 或 `lazer` 时按用户说明处理。
-2. 在候选皮肤根目录中存在 `skininfo.json` 时判定为 lazer，并说明检测依据。
-3. 没有 `skininfo.json` 且用户没有明确说明时，先问：
-
-   `这个皮肤按 osu! stable 还是 osu! lazer 处理？目录没有 skininfo.json，无法仅靠文件可靠判断。`
-
-4. 未获得回答前，只做与客户端无关的只读检查；不要作客户端特有结论或写入客户端相关配置。
-5. 用户说明与 `skininfo.json` 冲突时暂停并询问，不要自行选择。
-6. 不得用 `MainHUDComponents.json`、`SongSelect.json`、文件名、目录位置或模型记忆替代上述确认。
-
-### 其他需要确认的内容
-
-- 用户说“投”“投皮”“投的长度”“投 50px”时不要做通用“长度”消歧；先读取 `references/mania-hold-body.md`，按投皮领域语义处理。
-- 用户只说普通“长度/大小/位置”且没有投皮语境时，才询问具体对象。
-- 用户说“Mania 皮肤”但未给 keycount 时，先询问 1K/2K/4K/7K 等具体键数。
-- 用户要求混皮但未说明保留哪些模式或资源组时，先询问范围。
-- 用户要求原地覆盖、删除第三方文件或安装到游戏目录时，先确认目标和备份方式。
-- 用户给出的文件证据不足以确定元素时，先列候选并请求截图、路径或客户端信息。
+- 没有 `skininfo.json` 且用户没有说明 stable/lazer：先询问客户端；在回答前只做与客户端无关的检查。
+- Mania 没有 `Keys: N`：先询问 keycount；不能默认 4K 或第一个 `[Mania]` 段。
+- 混皮没有模式/资源组/输出范围：先询问范围；不能整目录覆盖或把某来源自动当全局基础皮肤。
+- 用户说“投/投皮/投的长度”：读取 `references/mania-hold-body.md`，不要按普通长度字段解释。
+- 要删除、原地覆盖或安装到游戏目录：先确认精确目标和备份/新目录策略。
+- 没有实际皮肤文件时，不能断言实际 path、SD/`@2x`、动画帧、alpha、fallback、NoteBodyStyle 或显示尺寸。
 
 ## Reference 路由
 
-只读取当前任务需要的文件：
-
-| 请求 | 读取 |
+| 意图 | 权威 reference |
 |---|---|
-| 文件/界面元素是什么 | `references/element-map.md`、`references/field-glossary.md` |
-| 数据库 schema、client 口径、查询模板 | `references/database.md` |
-| 为什么没生效/变默认/位置错 | `references/troubleshooting.md`、`references/stable-vs-lazer.md` |
-| 修改 `skin.ini` 字段 | `references/field-glossary.md` |
-| PNG 透明、白边、@2x、动画 | `references/image-animation.md` |
-| lazer 图片压扁、拉长、非等比、列宽缩放、投皮重复 | `references/lazer-image-scaling.md`，再按元素读取图片或 Mania reference |
-| 投、投皮、投的长度、投 50px、球皮/菱形皮/渐变皮 | `references/mania-hold-body.md`，已有皮肤再读 `references/mania.md` |
-| Mania 键位、列位置、判定线、合并 | `references/mania.md` |
-| hitsound、MP3、循环音效 | `references/audio.md` |
-| 混皮、lite、资源组 | `references/merge-recipes.md` |
-| 需要调研证据或解释来源 | `references/research-evidence.md` |
+| 请求入口、客户端/输入/最小提问 | `references/start-here.md` |
+| 元素、文件名、资源组 | `references/element-map.md` |
+| 数据库 schema、客户端口径、混皮 SQL | `references/database.md` |
+| 混皮、资源组、lite、`.osk` | `references/merge-recipes.md` |
+| skin.ini 字段 | `references/field-glossary.md` |
+| stable/lazer 差异和迁移 | `references/stable-vs-lazer.md` |
+| lazer 生成的布局 JSON 编辑 | `references/lazer-layout-json.md` |
+| Mania 键位、路径、几何、合并 | `references/mania.md` |
+| 投皮和投的长度 | `references/mania-hold-body.md` |
+| lazer 非等比缩放 | `references/lazer-image-scaling.md` |
+| 图片、alpha、@2x、动画 | `references/image-animation.md` |
+| 音频和 hitsound | `references/audio.md` |
+| 工具用途、参数和选择 | `references/tools.md` |
+| 故障诊断 | `references/troubleshooting.md` |
+| 证据和来源记录 | `references/research-evidence.md` |
 
-## 数据库使用
+生成或导出 `.osk` 时，读取 `references/merge-recipes.md` 的“lazer 皮肤名称与 `.osk` 输出名”规则。输出基名默认由 `[General] Name` 和 `Author` 组成的 `Name (Author)` 经过 lazer 文件名清理后得到；不要只使用目录名、源压缩包名或 `skininfo.json` 推导名称。
 
-`assets/osu_skin.db` 是元素和字段事实源。使用 sqlite 查询时：
+同一规则只以对应 reference 为准；其他 reference 只引用它，不重新复制完整流程。跨域任务按“入口 → 领域 reference → 数据库/真实文件”顺序读取。
 
-- 文件名问题查 `elements.filename`，去掉扩展名、`@2x` 和动画帧后缀再匹配；
-- 配置问题查 `elements.command`、`section` 和 `skin_ini_details`；
-- 画面描述查 `description`、`category`、`subcategory` 和 `element_tags`；
-- 返回 `type`、`client`、适用模式、HD 支持、动画 rule、默认值和备注；
-- 不把“解析/导出支持”当成“实际渲染支持”；
-- 不一次输出整库，只查询当前任务所需的记录。
+## 数据库查询协议
 
-## 任务规则
+`assets/osu_skin.db` 是事实源，包含元素表和 lazer 生成 JSON 事实表。普通查询：
 
-### 元素解释
-
-返回文件或命令、section、用途、适用模式、客户端、HD/谱面覆盖、动画/回退规则和常见误解。用户要求修改时继续执行对应修改流程，不停在定义解释。
-
-### `skin.ini` 修改
-
-1. 从 `field-glossary.md` 确认 section、类型、默认值、有效值、模式和客户端行为。
-2. 保留注释、未知字段、原顺序、大小写和所有其他重复 `[Mania]` 段。
-3. 修改前显示字段旧值和新值。
-4. 修改后检查类型、枚举、RGB/RGBa、逐列值数量和 path 存在性。
-
-### “不生效”诊断
-
-按此顺序检查：客户端和当前选中的皮肤、游戏模式、谱面覆盖、元素是否被目标客户端消费、文件名/路径/扩展名、SD/`@2x`、动画 base/`-0`/帧序、图片格式/alpha、音频格式和 fallback。每个结论标记为“已确认”或“推断”。
-
-### 图片和动画
-
-1. 先检查格式、尺寸、颜色模式、alpha 通道、透明/半透明像素和帧连续性。
-2. 区分“有 alpha 通道”“存在透明像素”“全透明”“透明 RGB 会造成 fringe”。
-3. 根据数据库中的 `hd_supported`、`suggested_size`、origin、blend mode 和 animation rule 选择处理方式。
-4. 生成 SD/HD 或动画后重新检查命名、尺寸、alpha、帧序和比例。
-5. 白边问题先检查 alpha=0 像素 RGB 和缩放过滤，不要直接涂黑整张透明区域。
-
-### Mania
-
-1. 出现“投/投皮/投的长度/投 50px”时先读取 `references/mania-hold-body.md`；其他 Mania 任务读取 `references/mania.md`。按对应 reference 中的 `osu-skin` 子命令调用脚本。
-2. 找到对应 `Keys: N` 的 `[Mania]` 段；多个段不能默认取第一个。
-3. 检查共享字段、逐列字段、`NoteImage#`、`NoteImage#H/L/T`、key、receptor、lighting、stage、默认回退、`@2x` 和动画；数据库标准语义为 H=头、L=体/投皮、T=尾，仍需核对实际 path。
-4. 调整列布局时检查 `ColumnStart`、`ColumnWidth`、`ColumnSpacing`、`ColumnLineWidth` 和中心位置。
-5. 调整判定/舞台时检查 `HitPosition`、`ScorePosition`、`StageHint`、`StageLight` 和客户端默认值。
-6. “投 50px”通常表示投皮图片顶部 50 行透明，不是某个 `skin.ini` 数值；生成器语境输出 `mania-noteNL.png` 一类图片（如 `mania-note1L.png`），对应 `NoteImage#L`，已有皮肤则先读取实际 path。
-7. 用户反馈 lazer 投皮重复或非等比缩放时读取 `references/lazer-image-scaling.md`，不要在修改投长度时主动解释渲染推导。
-8. 合并 keycount 时复制完整依赖并同步重写 path；保留目标其他 keycount、其他模式、作者和来源。
-
-### 音频
-
-读取 `references/audio.md`。按 Normal/Soft/Drum 和 hitnormal/hitclap/hitfinish/hitwhistle 成族检查；区分游戏格式支持与预览器解码；删除音效可能触发默认 fallback，静音需求优先生成合法静音文件。
-
-### 混皮、lite、`.osk`
-
-- 混皮前读取 `merge-recipes.md`，按 cursor、std gameplay、Mania keycount、hitsound、菜单等资源组处理，不逐文件随机混合。
-- lite 版先列保留的客户端、模式和界面，生成删除计划，在新目录执行，再检查 fallback。
-- `.osk` 打包时确保皮肤文件位于压缩包根；打包后重新解包检查 `skin.ini` 和资源。
-
-## 脚本规则
-
-首次使用或 `osu-skin` 不可用时，从 Skill 根目录运行 `python -m pip install -e .`。安装后只运行 reference 指定的 `osu-skin <子命令>`。脚本当前只保留 CLI 契约；返回 TODO 或退出码 3 时记录“入口未实现”，不得把 TODO 当成成功证据。
-
-## 输出模板
-
-解释：
-
-```text
-结论
-涉及文件/字段
-原因和客户端差异
-修改方法
-验证方法
+```powershell
+osu-skin db-query "<元素、文件名、命令或描述>" --client <stable|lazer|both> --json
 ```
 
-诊断：
+查询 lazer 布局 JSON 的文件、字段、完整 `Type` 或 `Settings`：
 
-```text
-环境与症状
-已确认证据
-可能原因（按置信度）
-建议修复
-未确认信息
+```powershell
+osu-skin db-query "<文件、字段、Type 或设置>" --client lazer --type lazer_json --json
 ```
 
-修改：
+`references/lazer-layout-json.md` 只描述编辑流程和运行时行为；具体 JSON 事实必须以 `lazer_json_entries` 查询结果为准。
 
-```text
-输出目录
-新增/修改/删除文件
-skin.ini 字段变更
-验证结果
-警告、来源和回退方式
+普通搜索 JSON 结果中，元素记录在 `results`，lazer JSON 事实记录在 `lazer_json_results`；元素专属详情、标签及标签定义仍在元素记录中，术语匹配在 `term_matches`。查询文件族前去掉目录、扩展名、`@2x` 和动画帧后缀，但候选不唯一时保留全部结果。
+
+复杂联表直接执行只读 SQL：
+
+```powershell
+osu-skin db-query --sql "SELECT ..." --json
+osu-skin db-query --sql-file .\consumer-matrix.sql --json
 ```
+
+`--sql`/`--sql-file` 只接受 `SELECT`、`WITH`、`EXPLAIN`、`PRAGMA`，结果列原样返回。混皮必须使用 `references/database.md` 中的完整元素、共享资源、配置消费者和 Mania keycount 查询，不得只依据 `client` 或单个标签。
+
+## 证据和写入
+
+- 区分“数据库/文件直接证明”“客户端规则”“静态推断”“待确认”；不要把解析/导出支持写成渲染支持。
+- 实际皮肤的 `skin.ini` path、重复 `[Mania]` 段、默认回退和文件存在性优先于数据库默认文件名。
+- 合并多个 Mania keycount 时，先按每个 `Keys:N` 建立实际 path 矩阵；根目录/子目录冲突或透明占位按 `references/merge-recipes.md` 处理，只回写实际消费者小节。
+- 修改后复查路径、字段类型、资源闭包、SD/`@2x`、动画、alpha、音频格式和 fallback；没有客户端实测时只报告静态验证。
+- 命令失败时读取结构化 `error`/`errors`；非零退出码不是部分成功。
+
+## CLI 入口
+
+需要调用工具时先读取 `references/tools.md` 的工具总表和按需求选择表，再读取领域 reference 中的具体流程。工具不可用时，在技能根目录运行 `python -m pip install -e .`；所有命令优先使用 `--json`，写入工具先用 `--dry-run`。

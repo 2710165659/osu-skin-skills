@@ -1,8 +1,10 @@
 # osu! skin 故障诊断树
 
-按症状选择命令：元素不生效时运行 `osu-skin db-query "<元素>" --client <客户端> --json`；图片异常时运行 `osu-skin image-inspect "<路径>" --transparent-rgb --json`；Mania 异常时读取 `mania.md`；投皮长度或重复时读取 `mania-hold-body.md`。
+按症状选择工具：`db-query` 只读确认元素消费者和客户端；`image-inspect` 只读确认图片尺寸、alpha、透明行、SD/`@2x` 和动画；`mania-analyze` 只读确认 Mania 小节、path 和依赖；对应修复工具才写出新 PNG。元素不生效时运行 `osu-skin db-query "<元素>" --client <客户端> --json`；图片异常时运行 `osu-skin image-inspect "<路径>" --transparent-rgb --json`；Mania 异常时读取 `mania.md`；投皮长度或重复时读取 `mania-hold-body.md`。完整工具选择见 `tools.md`。
 
-用户明确使用 lazer 且症状是图片非等比缩放或重复时，读取 `lazer-image-scaling.md`；“投的长度”修改仍读取 `mania-hold-body.md`。
+用户明确使用 lazer，或说明从 stable 迁移到 lazer 后出现图片非等比缩放或重复时，先读取 `stable-vs-lazer.md`，再读取 `lazer-image-scaling.md`；“投的长度”修改仍读取 `mania-hold-body.md`。没有实际皮肤时，先索要皮肤文件和 Mania keycount，拿到证据前不猜修复参数。
+
+确认是 lazer 目标矩形拉伸原始素材后，投皮 L 使用 `mania-lazer-hold-body-fix`，Key/KeyD 使用 `mania-lazer-key-fix`。这两个脚本不能修复“stable 客户端已经通过拉伸形成了目标外观，再要求从该外观适配 lazer”的情况。
 
 ## 目录
 
@@ -19,7 +21,7 @@
 
 ## 诊断格式
 
-先记录：客户端、皮肤根目录、当前选中皮肤、游戏模式、keycount、运行分辨率、谱面/谱面皮肤、问题截图和复现步骤。每个原因标记 `已确认`、`客户端规则`、`高概率` 或 `待确认`。
+先记录：客户端、皮肤根目录、当前选中皮肤、游戏模式、keycount、运行分辨率、谱面/谱面皮肤和用户描述的复现步骤。每个原因标记 `已确认`、`客户端规则`、`高概率` 或 `待确认`。
 
 ## 元素完全没有变化
 
@@ -99,6 +101,7 @@
 - 得分判定偏移：检查 `ScorePosition` 及 stable/lazer 默认差异。
 - 投皮重复/不连续：检查 `NoteBodyStyle`、实际 `NoteImage#L` path、源图高度、顶部透明行、`WidthForNoteHeightScale` 和 H/L/T 尺寸。
 - 长条方向错误：检查 `UpsideDown` 和 Note/Key flip 字段，不要直接旋转全部资源。
+- 面尾/收尾变形：先用 `mania-analyze` 解析实际 H/L/T，再检查 T 的 alpha。T 全透明时可见面尾属于 `NoteImage#L` 投皮 cap，保持 T 全透明并检查通常为顶部重复的 L；T 有可见像素时才检查普通 Hold Tail 的尺寸、lazer Y 翻转和 flip。
 
 ## 音频没声音
 
