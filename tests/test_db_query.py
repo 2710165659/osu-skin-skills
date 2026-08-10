@@ -377,6 +377,164 @@ class DatabaseQueryTests(unittest.TestCase):
         self.assertTrue(all("lazer" in row["notes"] for row in rows))
         self.assertTrue(all("osu! 标准模式" in row["notes"] for row in rows))
 
+    def test_legacy_audio_client_scope_matches_lazer_consumers(self) -> None:
+        stable_only_ids = {
+            "check-off",
+            "check-on",
+            "heartbeat",
+            "key-confirm",
+            "key-delete",
+            "key-movement",
+            "key-press",
+            "metronomelow",
+            "sectionfail",
+            "sectionpass",
+            "select-difficulty",
+            "select-expand",
+            "shutter",
+        }
+        placeholders = ",".join("?" for _ in stable_only_ids)
+        with _connect_read_only(default_db_path()) as connection:
+            rows = {
+                row["id"]: row
+                for row in connection.execute(
+                    f"""
+                    SELECT e.id, e.client, e.notes,
+                           GROUP_CONCAT(et.tag, '|') AS tags
+                    FROM elements e
+                    LEFT JOIN element_tags et ON et.element_id = e.id
+                    WHERE e.id IN ({placeholders})
+                    GROUP BY e.id
+                    """,
+                    tuple(sorted(stable_only_ids)),
+                ).fetchall()
+            }
+            retry = connection.execute(
+                """
+                SELECT e.client, e.notes,
+                       EXISTS (
+                           SELECT 1 FROM element_tags et
+                           WHERE et.element_id = e.id AND et.tag = '稳定独有'
+                       ) AS has_stable_only_tag
+                FROM elements e
+                WHERE e.id = 'pause-retry-click'
+                """
+            ).fetchone()
+
+        self.assertEqual(set(rows), stable_only_ids)
+        self.assertTrue(all(row["client"] == "stable" for row in rows.values()))
+        self.assertTrue(all("稳定独有" in row["tags"].split("|") for row in rows.values()))
+        self.assertTrue(all("不从 legacy 皮肤加载" in row["notes"] for row in rows.values()))
+        self.assertTrue(all("b45c1a26e5" not in row["notes"] for row in rows.values()))
+        self.assertIsNotNone(retry)
+        self.assertEqual(retry["client"], "both")
+        self.assertEqual(retry["has_stable_only_tag"], 0)
+        self.assertIn("从 legacy 皮肤加载", retry["notes"])
+
+    def test_hit_result_base_images_are_not_animation_exceptions(self) -> None:
+        hit_result_ids = {
+            "hit0",
+            "hit50",
+            "hit100",
+            "hit100k",
+            "hit300",
+            "hit300g",
+            "hit300k",
+            "mania-hit0",
+            "mania-hit50",
+            "mania-hit100",
+            "mania-hit200",
+            "mania-hit300",
+            "mania-hit300g",
+            "taiko-hit0",
+            "taiko-hit100",
+            "taiko-hit100k",
+            "taiko-hit300",
+            "taiko-hit300k",
+        }
+        placeholders = ",".join("?" for _ in hit_result_ids)
+        with _connect_read_only(default_db_path()) as connection:
+            rows = {
+                row["id"]: row
+                for row in connection.execute(
+                    f"""
+                    SELECT e.id, e.client, e.notes, a.rule,
+                           GROUP_CONCAT(et.tag, '|') AS tags
+                    FROM elements e
+                    JOIN animation a ON a.element_id = e.id
+                    LEFT JOIN element_tags et ON et.element_id = e.id
+                    WHERE e.id IN ({placeholders})
+                    GROUP BY e.id
+                    """,
+                    tuple(sorted(hit_result_ids)),
+                ).fetchall()
+            }
+            legacy_rule_count = connection.execute(
+                "SELECT COUNT(*) FROM animation WHERE rule = 'always_load_base'"
+            ).fetchone()[0]
+            tag_definitions = {
+                row["tag"]: row["description"]
+                for row in connection.execute(
+                    """
+                    SELECT tag, description
+                    FROM tag_definitions
+                    WHERE tag IN ('始终加载基图', '结算统计基图')
+                    """
+                ).fetchall()
+            }
+
+        self.assertEqual(set(rows), hit_result_ids)
+        self.assertEqual(legacy_rule_count, 0)
+        self.assertTrue(all(row["rule"] == "has_0_hides_base" for row in rows.values()))
+        self.assertTrue(all("有-0隐藏基图" in row["tags"].split("|") for row in rows.values()))
+        self.assertTrue(all("始终加载基图" not in row["tags"].split("|") for row in rows.values()))
+        self.assertNotIn("始终加载基图", tag_definitions)
+        self.assertIn("结算统计基图", tag_definitions)
+        self.assertIn("独立读取", tag_definitions["结算统计基图"])
+
+        stable_only_generic_ids = {"hit100k", "hit300g", "hit300k"}
+        for element_id in stable_only_generic_ids:
+            self.assertEqual(rows[element_id]["client"], "stable")
+            self.assertIn("稳定独有", rows[element_id]["tags"].split("|"))
+            self.assertIn("lazer 不读取此通用判定资源", rows[element_id]["notes"])
+        for element_id in hit_result_ids - stable_only_generic_ids:
+            self.assertEqual(rows[element_id]["client"], "both")
+            self.assertNotIn("稳定独有", rows[element_id]["tags"].split("|"))
+
+        result_screen_ids = hit_result_ids - {"hit300k"}
+        for element_id in result_screen_ids:
+            tags = rows[element_id]["tags"].split("|")
+            self.assertIn("结算统计基图", tags)
+            self.assertIn("结算界面", tags)
+            self.assertIn("动画不加载无后缀基图", rows[element_id]["notes"])
+            self.assertIn("stable 结算", rows[element_id]["notes"])
+
+        hit300k_tags = rows["hit300k"]["tags"].split("|")
+        self.assertNotIn("结算统计基图", hit300k_tags)
+        self.assertNotIn("结算界面", hit300k_tags)
+        self.assertIn("动画不加载无后缀基图", rows["hit300k"]["notes"])
+        self.assertIn("结算屏幕不显示", rows["hit300k"]["notes"])
+
+    def test_audio_client_scope_matches_exclusive_tags(self) -> None:
+        with _connect_read_only(default_db_path()) as connection:
+            mismatches = connection.execute(
+                """
+                SELECT e.id, e.client, GROUP_CONCAT(et.tag, '|') AS tags
+                FROM elements e
+                LEFT JOIN element_tags et ON et.element_id = e.id
+                WHERE e.type = 'audio'
+                GROUP BY e.id
+                HAVING (e.client = 'stable' AND instr(COALESCE(tags, ''), '稳定独有') = 0)
+                    OR (e.client = 'lazer' AND instr(COALESCE(tags, ''), 'lazer独有') = 0)
+                    OR (e.client = 'both' AND (
+                        instr(COALESCE(tags, ''), '稳定独有') > 0
+                        OR instr(COALESCE(tags, ''), 'lazer独有') > 0
+                    ))
+                """
+            ).fetchall()
+
+        self.assertEqual(mismatches, [])
+
     def test_mania_records_explain_lazer_forced_dual_stages(self) -> None:
         with _connect_read_only(default_db_path()) as connection:
             rows = {

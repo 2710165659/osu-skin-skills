@@ -37,7 +37,7 @@
 | 光标和尾迹 | `cursor`, `cursormiddle`, `cursortrail` | CursorCentre/Expand/Rotate、帧组、HD；lazer 中皮肤光标只在 std 游玩时渲染，其他模式和界面使用原生光标 |
 | 跟随点 | `followpoint`, `followpoint-0..n` | `has_0_hides_base`、帧序、blend mode |
 | 转盘 | `spinner-background`, `spinner-circle`, `spinner-approachcircle`, `spinner-metre`, `spinner-rpm` | 新旧转盘样式、Spinner 配置、stable/lazer |
-| 打击结果 | `hit0`, `hit50`, `hit100`, `hit300`, `hit100k`, `hit300k` | 动画 base rule、数字前缀、谱面覆盖 |
+| 打击结果 | `hit0`, `hit50`, `hit100`, `hit300`, `hit100k`, `hit300g`, `hit300k` | 动画 `-0` 规则、stable 结算统计、lazer 实际消费范围、谱面覆盖 |
 
 ### taiko、catch 和菜单
 

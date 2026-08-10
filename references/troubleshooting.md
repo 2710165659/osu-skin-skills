@@ -68,7 +68,7 @@
 
 ## 动画不播放或叠加错误
 
-检查 base、`-0`、帧起始、连续性、帧尺寸、FPS、循环和客户端 rule。stable hitXX 的 `always_load_base` 与 lazer 的行为可能不同；不要只按文件存在性下结论。
+检查 base、`-0`、帧起始、连续性、帧尺寸、FPS、循环和客户端 rule。hitXX 存在 `-0` 时，动画不加载无后缀基图；但 stable 结算统计可能独立读取无后缀图片，不要把两个消费者混为同一动画行为。
 
 ## std 数字重叠/instafade
 

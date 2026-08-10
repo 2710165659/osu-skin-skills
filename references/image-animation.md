@@ -58,7 +58,7 @@
 - 是否断帧、重复帧或多余帧；
 - 所有帧尺寸、颜色模式和 alpha 是否一致；
 - FPS 来自固定 animation.fps、`AnimationFramerate`、BPM 还是 Mania `LightFramePerSecond`；
-- `-0` 是否隐藏 base，或 stable hitXX 是否始终加载 base；
+- `-0` 是否隐藏 base；hitXX 的无后缀图片是否另被 stable 结算统计独立使用；
 - 帧是否属于正确的模式和客户端。
 
 复制/重命名/删除动画时，整组操作并在写后重新列帧。

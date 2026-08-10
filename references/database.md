@@ -321,10 +321,9 @@ ORDER BY e.id;
 
 | 值 | 含义 | 典型元素 |
 |---|---|---|
-| `has_0_hides_base` | 若 `{name}-0.png` 存在，则不加载 `{name}.png`，仅加载帧序列 | `followpoint`、`sliderfollowcircle`、`pippidon` 等 |
-| `always_load_base` | 即使 `{name}-0.png` 存在，仍同时加载 `{name}.png` 基图 | `hit0`、`hit50`、`hit100` 等 hitXX 系列（仅 stable 端此规则生效；lazer 端 hitXX 也遵循 `has_0_hides_base`） |
+| `has_0_hides_base` | 若 `{name}-0.png` 存在，则不加载 `{name}.png`，仅加载帧序列 | `followpoint`、`sliderfollowcircle`、`pippidon`、hitXX 等 |
 
-> **注意**：`always_load_base` 标记的元素在 stable 下有特殊行为——基图和动画帧共存。lazer 不适用此规则，所有元素统一遵循 `has_0_hides_base`。
+> **注意**：hitXX 没有动画例外。stable 结算界面的判定数量统计会另行读取无后缀 hitXX 图片，但这不表示动画同时加载基图；lazer 也按 `has_0_hides_base` 选择动画帧。
 
 ## 完整标签列表
 
@@ -332,7 +331,7 @@ ORDER BY e.id;
 |---|---|
 | `可选动画` | 该元素支持 `-{n}` 帧动画序列 |
 | `有-0隐藏基图` | 若 `-0` 帧文件存在，则不加载无后缀基图 |
-| `始终加载基图` | 即使 `-0` 帧存在，仍同时加载无后缀基图（仅 stable hitXX 系列） |
+| `结算统计基图` | stable 结算界面的判定数量统计会独立读取无后缀 hitXX 图片；这不是动画基图 |
 | `std模式` | 用于 osu! 标准模式 |
 | `太鼓模式` | 用于 osu!taiko 模式 |
 | `接水果模式` | 用于 osu!catch 模式 |
@@ -441,12 +440,11 @@ JOIN element_tags et ON e.id = et.element_id
 JOIN animation a ON e.id = a.element_id
 WHERE et.tag = '有-0隐藏基图';
 
--- 查找始终加载基图的动画元素（hitXX 系列）
-SELECT e.id, e.filename, a.rule
+-- 查找 stable 结算统计独立读取无后缀图片的 hitXX 元素
+SELECT e.id, e.filename, e.notes
 FROM elements e
 JOIN element_tags et ON e.id = et.element_id
-JOIN animation a ON e.id = a.element_id
-WHERE et.tag = '始终加载基图';
+WHERE et.tag = '结算统计基图';
 
 -- 查找 skin.ini 中可配置路径的命令
 SELECT e.id, e.command, e.section, e.description
@@ -555,6 +553,7 @@ GROUP BY entry_kind ORDER BY entry_kind;
 - **lazer 的加载范围近似 stable 的子集**：实际范围约为 stable 元素减去被程序化 UI、动态音效替代或尚未实现的部分，再加少数 lazer 独有元素。
 - **解析/导出不等于实际支持**：lazer 会保存部分当前尚未参与渲染的 `skin.ini` 键，以减少重新导出时的数据丢失。`client` 按视觉或行为是否实际生效标注。
 - **新增资源**：lazer 支持用户皮肤的 `scoreentry-0..9` 和 `fountain-loop`。
-- **hitXX 动画规则差异**：`hit0`/`hit50`/`hit100` 等元素的 `animation.rule` 标注为 `always_load_base`，这是 stable 的规则。lazer 中这些元素实际遵循 `has_0_hides_base`（通用规则），但未拆分两条记录——使用时需注意如果针对 lazer 读取，应忽略 `always_load_base` 规则。
+- **hitXX 的两个消费者**：`hit0`/`hit50`/`hit100` 等元素的动画遵循 `has_0_hides_base`；stable 结算界面的判定数量统计会另外读取无后缀图片。后者不属于动画加载规则，带 `结算统计基图` 标签的记录可用于查询该用途。
+- **lazer 判定图片范围**：通用 legacy 判定只读取 `hit0`、`hit50`、`hit100`、`hit300`；通用 `hit100k`、`hit300g`、`hit300k` 为 stable-only。模式专用的六种 `mania-hitXX` 和五种 `taiko-hitXX` 均有 lazer 消费点，不能按通用文件名范围推断。
 - **转盘样式**：旧样式（v1.0）和新样式（v2.0+）的元素都收录在数据库中，通过 `旧转盘样式` / `新转盘样式` 标签区分。当 `spinner-background.png` 存在于皮肤目录时，即使 skin.ini 版本设为 latest 也会强制使用旧样式。
 - **模式共享元素**：部分图片被多个模式共用（如 `lighting.png` 用于 osu! + taiko + catch，`sliderscorepoint.png` 用于 osu! + taiko），在数据库中只有一条记录，通过标签标注了所有适用模式。

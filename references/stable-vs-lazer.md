@@ -52,6 +52,7 @@
 ### stable-only 的典型风险
 
 - 程序化 UI 替代的按钮、界面和部分结算资源；
+- 音效也需按实际 `SkinnableSound` 消费点核对：lazer 的 `heartbeat`、`key-*`、`check-*`、`select-*`、`shutter`、`metronomelow`、`sectionpass/sectionfail` 不读取 legacy 皮肤文件，导入成功或存在同名内置资源不等于生效；
 - `SliderBallFlip`：lazer 可解析/导出，但当前滑条球渲染不消费；
 - Mania 的部分 stable 专属布局字段，如 `ColumnStart`、`ColumnRight`、`SplitStages`、`SpecialStyle` 等；
 - 大号 `ranking-A/B/C/D/S/SH/X/XH.png` 在 lazer 当前使用点固定来自默认经典皮肤；不要承诺导入皮肤能覆盖它们。
@@ -82,12 +83,11 @@ lazer 的自定义 Mania HUD 布局是完整替代，不是在默认 HUD 上追�
 
 ## 动画差异
 
-数据库的 `animation.rule` 主要有：
+数据库的 `animation.rule` 使用 `has_0_hides_base`：存在 `name-0.png` 时，动画只加载编号帧，不加载 `name.png`。hitXX 也遵循此规则，stable 并不会把无后缀图片作为动画基图同时加载。
 
-- `has_0_hides_base`：存在 `name-0.png` 时不加载 `name.png`；
-- `always_load_base`：stable 的 hitXX 等元素即使有 `-0` 仍加载 base。
+stable 的特殊之处是结算界面的判定数量统计会独立读取无后缀 hitXX 图片。这是动画以外的另一处消费；lazer 不因该 stable 结算用途而加载无后缀图片。诊断 `hit0`、`hit50`、`hit100` 等文件时，应分别检查游玩判定动画和 stable 结算统计。
 
-lazer 对 hitXX 也可能按 `has_0_hides_base` 处理。诊断 `hit0`、`hit50`、`hit100` 等动画时，不要只复述数据库 rule，要注明客户端。
+lazer 的通用 legacy 判定只读取 `hit0`、`hit50`、`hit100`、`hit300`，不读取通用 `hit100k`、`hit300g`、`hit300k`。模式专用资源不能据此类推：lazer 会读取全部六种 `mania-hit0/50/100/200/300/300g`，也会读取 `taiko-hit0/100/100k/300/300k`。
 
 ## lazer 文件分类
 
