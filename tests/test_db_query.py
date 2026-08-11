@@ -38,6 +38,7 @@ EXPECTED_LAZER_COMPONENT_TYPES = {
     "osu.Game.Screens.Play.HUD.DrawableGameplayLeaderboard",
     "osu.Game.Screens.Play.HUD.HitErrorMeters.BarHitErrorMeter",
     "osu.Game.Screens.Play.HUD.HitErrorMeters.ColourHitErrorMeter",
+    "osu.Game.Screens.Play.HUD.HitErrorMeters.LegacyBarHitErrorMeter",
     "osu.Game.Screens.Play.HUD.JudgementCounter.JudgementCounterDisplay",
     "osu.Game.Screens.Play.HUD.LongestComboCounter",
     "osu.Game.Screens.Play.HUD.PlayerAvatar",
@@ -275,7 +276,21 @@ class DatabaseQueryTests(unittest.TestCase):
         self.assertEqual({row["component_type"] for row in rows}, EXPECTED_LAZER_COMPONENT_TYPES)
         self.assertEqual(len(rows), len(EXPECTED_LAZER_COMPONENT_TYPES))
         self.assertEqual(len({row["assembly_qualified_type"] for row in rows}), len(rows))
-        self.assertTrue(all("Version=2026.804.2.0" in row["assembly_qualified_type"] for row in rows))
+        legacy = next(
+            row
+            for row in rows
+            if row["component_type"]
+            == "osu.Game.Screens.Play.HUD.HitErrorMeters.LegacyBarHitErrorMeter"
+        )
+        self.assertIn("Version=2026.807.0.0", legacy["assembly_qualified_type"])
+        self.assertTrue(
+            all(
+                "Version=2026.804.2.0" in row["assembly_qualified_type"]
+                for row in rows
+                if row["component_type"]
+                != "osu.Game.Screens.Play.HUD.HitErrorMeters.LegacyBarHitErrorMeter"
+            )
+        )
 
     def test_lazer_json_catalog_has_database_uniqueness_guards(self) -> None:
         with _connect_read_only(default_db_path()) as connection:
@@ -307,6 +322,10 @@ class DatabaseQueryTests(unittest.TestCase):
         self.assertEqual(actual, EXPECTED_LAZER_SETTINGS)
         self.assertEqual(len(rows), 73)
         self.assertEqual(len({(row["component_type"], row["field_name"]) for row in rows}), len(rows))
+        self.assertNotIn(
+            "osu.Game.Screens.Play.HUD.HitErrorMeters.LegacyBarHitErrorMeter",
+            actual,
+        )
 
     def test_representative_lazer_json_settings_are_exact(self) -> None:
         with _connect_read_only(default_db_path()) as connection:
