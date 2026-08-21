@@ -18,8 +18,8 @@ ColumnWidth: 30
 Keys: 7
 ColumnWidth: 30,31,32,33,34,35,36
 ColumnSpacing: 1
-NoteImage1L: custom/body
-NoteImage1H: custom/head
+NoteImage0L: custom/body
+NoteImage0H: custom/head
 NoteBodyStyle: 2
 """
 
@@ -43,12 +43,69 @@ class ManiaAnalyzeTests(unittest.TestCase):
         self.assertEqual(result["matching_sections"], 1)
         self.assertEqual(section["long_notes"][0]["body"], "custom/body")
         self.assertEqual(section["geometry"]["rendered_column_width"][0], 48.0)
-        self.assertTrue(section["resources"]["NoteImage1L"]["base_exists"])
-        self.assertTrue(section["resources"]["NoteImage1L"]["hd_exists"])
-        self.assertEqual(len(section["resources"]["NoteImage1L"]["frames"]), 1)
+        self.assertTrue(section["resources"]["NoteImage0L"]["base_exists"])
+        self.assertTrue(section["resources"]["NoteImage0L"]["hd_exists"])
+        self.assertEqual(len(section["resources"]["NoteImage0L"]["frames"]), 1)
         self.assertEqual(section["path_sources"]["StageBottom"], "default")
         self.assertIn("NoteImage2L", section["fallback_candidates"])
         self.assertEqual(section["note_body_style"]["effective"], 2)
+
+    def test_default_note_mapping_is_shared_by_stable_and_lazer(self) -> None:
+        text = "[Mania]\nKeys: 4\n"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "skin.ini"
+            path.write_text(text, encoding="utf-8")
+            for client in ("stable", "lazer"):
+                with self.subTest(client=client):
+                    section = analyze_skin(path, 4, client, False)["sections"][0]
+                    self.assertEqual(section["default_column_types"], ["1", "2", "2", "1"])
+                    first_index = 0 if client == "lazer" else 1
+                    last_index = 3 if client == "lazer" else 4
+                    self.assertEqual(section["paths"][f"NoteImage{first_index}"], "mania-note1")
+                    self.assertEqual(section["paths"][f"NoteImage{last_index}"], "mania-note1")
+                    self.assertNotIn("NoteImage4" if client == "lazer" else "NoteImage0", section["paths"])
+                    self.assertEqual(section["long_notes"][0]["field_index"], 0 if client == "lazer" else None)
+                    self.assertEqual(section["long_notes"][0]["column"], 1)
+
+    def test_default_seven_key_mapping_uses_s_for_the_centre(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "skin.ini"
+            path.write_text("[Mania]\nKeys: 7\n", encoding="utf-8")
+            section = analyze_skin(path, 7, "lazer", False)["sections"][0]
+
+        self.assertEqual(section["default_column_types"], ["1", "2", "1", "S", "1", "2", "1"])
+        self.assertEqual(section["paths"]["NoteImage3"], "mania-noteS")
+        self.assertEqual(section["paths"]["NoteImage3H"], "mania-noteSH")
+        self.assertEqual(section["paths"]["NoteImage3L"], "mania-noteSL")
+        self.assertEqual(section["paths"]["NoteImage3T"], "mania-noteST")
+
+    def test_hold_note_fallbacks_use_configured_short_note_and_head(self) -> None:
+        text = "[Mania]\nKeys: 4\nNoteImage0: custom/note\n"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "skin.ini"
+            path.write_text(text, encoding="utf-8")
+            section = analyze_skin(path, 4, "lazer", False)["sections"][0]
+
+        self.assertEqual(section["fallback_candidates"]["NoteImage0H"], ["mania-note1H", "custom/note"])
+        self.assertEqual(section["fallback_candidates"]["NoteImage0T"], ["mania-note1T", "mania-note1H", "custom/note"])
+
+    def test_lazer_default_mapping_restarts_for_each_forced_stage(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "skin.ini"
+            path.write_text("[Mania]\nKeys: 18\n", encoding="utf-8")
+            section = analyze_skin(path, 18, "lazer", False)["sections"][0]
+
+        self.assertEqual(section["stage_columns"], 9)
+        self.assertEqual(section["default_column_types"], ["1", "2", "1", "2", "S", "2", "1", "2", "1"] * 2)
+        self.assertEqual(section["paths"]["NoteImage9"], "mania-note1")
+
+    def test_note_image_indexes_are_zero_based(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "skin.ini"
+            path.write_text("[Mania]\nKeys: 4\nNoteImage4: invalid\n", encoding="utf-8")
+            warnings = analyze_skin(path, 4, "lazer", False)["sections"][0]["warnings"]
+
+        self.assertEqual(warnings, ["indexed fields exceed keycount: NoteImage4"])
 
     def test_lazer_default_body_style_uses_skin_version(self) -> None:
         text = "[General]\nVersion: 2.7\n[Mania]\nKeys: 4\n"

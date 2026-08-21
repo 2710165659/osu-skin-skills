@@ -36,16 +36,3 @@
 3. 将记录标为 `both` 前必须核对真实消费点。检查直接名称、动态拼接名称、模式 transformer、配置自定义路径和 fallback，不能只依赖全仓库一次关键词搜索。
 4. 通用资源与模式专用资源必须逐项核对，不能互相类推。例如通用 `hit300g` 与 `mania-hit300g`、通用 `hit300k` 与 `taiko-hit300k` 是不同消费者。
 5. 文件存在、动画帧选择、游玩渲染、结算界面使用和导入保留是不同事实，必须分开建模和描述。
-
-## 修改和验证
-
-1. 二进制 SQLite 数据库使用 SQLite 事务和参数化 SQL 修改，开启外键检查；不要用字符串替换或不透明的二进制覆盖。
-2. 数据库行为修订必须添加或更新回归测试，覆盖客户端值、备注、标签、动画规则和已删除的旧定义。
-3. 完成后至少运行：
-   - `python -m unittest discover -s tests -v`；
-   - `python -m compileall -q scripts tests`；
-   - `osu-skin selfcheck --db "<DB_PATH>" --json`；
-   - SQLite `PRAGMA quick_check` 和 `PRAGMA foreign_key_check`；
-   - `git diff --check`。
-4. 使用 `db-query` 回读所有受影响的代表记录，确认搜索结果中的 `client`、`notes`、标签和专属详情与预期一致。
-5. 没有客户端运行实测时，明确区分“源码静态核验”“数据库静态验证”和“游戏内实测”，不能把前两者写成已经游戏内验证。

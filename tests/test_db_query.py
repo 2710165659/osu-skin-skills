@@ -646,6 +646,68 @@ class DatabaseQueryTests(unittest.TestCase):
         self.assertIn("图片右边贴住轨道左边", image_rows["mania-stage-left"]["notes"])
         self.assertIn("图片左边贴住轨道右边", image_rows["mania-stage-right"]["notes"])
 
+    def test_mania_default_column_mapping_is_shared_and_zero_based(self) -> None:
+        ids = (
+            "mania-key1", "mania-key1D", "mania-key2", "mania-key2D", "mania-keyS", "mania-keySD",
+            "mania-note1", "mania-note1H", "mania-note1L", "mania-note1T",
+            "mania-note2", "mania-note2H", "mania-note2L", "mania-note2T",
+            "mania-noteS", "mania-noteSH", "mania-noteSL", "mania-noteST",
+        )
+        fields = ("KeyImage#", "KeyImage#D", "NoteImage#", "NoteImage#H", "NoteImage#L", "NoteImage#T")
+        placeholders = ",".join("?" for _ in ids)
+        field_placeholders = ",".join("?" for _ in fields)
+        with _connect_read_only(default_db_path()) as connection:
+            rows = {
+                row["id"]: row
+                for row in connection.execute(
+                    f"SELECT id, client, notes FROM elements WHERE id IN ({placeholders})", ids
+                ).fetchall()
+            }
+            tags = {
+                row["element_id"]: row["tag"]
+                for row in connection.execute(
+                    f"SELECT element_id, tag FROM element_tags WHERE element_id IN ({placeholders}) AND tag = '稳定独有'",
+                    ids,
+                ).fetchall()
+            }
+            details = {
+                row["element_id"]: row
+                for row in connection.execute(
+                    f"""SELECT e.id AS element_id, e.description, e.notes, d.default_value
+                        FROM elements e JOIN skin_ini_details d ON d.element_id = e.id
+                        WHERE e.id IN ({field_placeholders})""",
+                    fields,
+                ).fetchall()
+            }
+            term = connection.execute(
+                "SELECT term, description FROM term_definitions WHERE term = 'Mania 默认列映射'"
+            ).fetchone()
+            old_term = connection.execute(
+                "SELECT 1 FROM term_definitions WHERE term = 'lazer Mania 默认列映射'"
+            ).fetchone()
+            animation = {
+                row["element_id"]: row["rule"]
+                for row in connection.execute(
+                    f"SELECT element_id, rule FROM animation WHERE element_id IN ({placeholders})", ids
+                ).fetchall()
+            }
+
+        self.assertEqual(set(rows), set(ids))
+        self.assertTrue(all(row["client"] == "both" for row in rows.values()))
+        self.assertEqual(tags, {})
+        self.assertTrue(all("stable 与 lazer 均未配置时" in row["notes"] for row in rows.values()))
+        self.assertIn("stable", rows["mania-note1"]["notes"])
+        self.assertIn("lazer", rows["mania-noteS"]["notes"])
+        self.assertEqual(animation["mania-noteS"], "has_0_hides_base")
+        for field in fields:
+            self.assertIn("0-based", details[field]["description"])
+            self.assertNotIn("从1开始", details[field]["notes"] or "")
+            self.assertIn("stable/lazer", details[field]["default_value"])
+        self.assertEqual(details["NoteImage#"]["default_value"], "stable/lazer：按列映射为 mania-note1、mania-note2 或 mania-noteS")
+        self.assertIsNotNone(term)
+        self.assertIn("stable 与 lazer 均", term["description"])
+        self.assertIsNone(old_term)
+
 
 if __name__ == "__main__":
     unittest.main()

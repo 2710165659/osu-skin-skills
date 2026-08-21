@@ -202,6 +202,35 @@ def _resource_files(root: Path, value: str) -> dict[str, object]:
     }
 
 
+def _stage_columns(keys: int, client: str) -> int:
+    return keys // 2 if client == "lazer" and keys > 10 and keys % 2 == 0 else keys
+
+
+def _default_column_type(keys: int, field_index: int, client: str) -> str:
+    stage_columns = _stage_columns(keys, client)
+    column_in_stage = field_index % stage_columns
+    if stage_columns % 2 == 1 and column_in_stage == stage_columns // 2:
+        return "S"
+    distance_to_edge = min(column_in_stage, stage_columns - 1 - column_in_stage)
+    return "1" if distance_to_edge % 2 == 0 else "2"
+
+
+def _default_candidates(
+    prefix: str, suffix: str, column_type: str, paths: dict[str, str], field_index: int
+) -> list[str]:
+    family = "key" if prefix == "KeyImage" else "note"
+    primary = f"mania-{family}{column_type}{suffix}"
+    if prefix == "KeyImage" or suffix in {"", "L"}:
+        return [primary]
+
+    note = paths.get(f"NoteImage{field_index}", f"mania-note{column_type}")
+    if suffix == "H":
+        return list(dict.fromkeys((primary, note)))
+
+    head = paths.get(f"NoteImage{field_index}H", f"mania-note{column_type}H")
+    return list(dict.fromkeys((primary, head, note)))
+
+
 def _analyze_section(section: IniSection, root: Path, keys: int, client: str, version: float, dependencies: bool) -> dict[str, object]:
     warnings: list[str] = []
     widths = _expand(_numbers(section.last("ColumnWidth"), 30), keys, keys, "ColumnWidth", warnings)
@@ -229,7 +258,13 @@ def _analyze_section(section: IniSection, root: Path, keys: int, client: str, ve
     indexed_out_of_range = []
     for name in section.fields:
         match = INDEXED_FIELD.match(name)
-        if match and int(match.group("index")) > keys:
+        if not match:
+            continue
+        index = int(match.group("index"))
+        if match.group("base") in {"KeyImage", "NoteImage"}:
+            if index >= keys:
+                indexed_out_of_range.append(name)
+        elif index > keys:
             indexed_out_of_range.append(name)
     if indexed_out_of_range:
         warnings.append("indexed fields exceed keycount: " + ", ".join(sorted(indexed_out_of_range)))
@@ -252,7 +287,10 @@ def _analyze_section(section: IniSection, root: Path, keys: int, client: str, ve
             path_sources[name] = "default"
 
     fallback_candidates: dict[str, list[str]] = {}
-    for index in range(1, keys + 1):
+    default_column_types = [_default_column_type(keys, index, client) for index in range(keys)]
+    field_indexes = range(keys) if client == "lazer" else range(1, keys + 1)
+
+    for position, index in enumerate(field_indexes):
         for prefix, suffix in (
             ("KeyImage", ""),
             ("KeyImage", "D"),
@@ -264,12 +302,10 @@ def _analyze_section(section: IniSection, root: Path, keys: int, client: str, ve
             name = f"{prefix}{index}{suffix}"
             if name in paths:
                 continue
-            family = "key" if prefix == "KeyImage" else "note"
-            fallback_candidates[name] = [
-                f"mania-{family}1{suffix}",
-                f"mania-{family}2{suffix}",
-                f"mania-{family}S{suffix}",
-            ]
+            candidates = _default_candidates(prefix, suffix, default_column_types[position], paths, index)
+            fallback_candidates[name] = candidates
+            paths[name] = candidates[0]
+            path_sources[name] = "default"
     resources = {name: _resource_files(root, value) for name, value in sorted(paths.items())} if dependencies else {}
     fallback_resources = {}
     if dependencies:
@@ -283,10 +319,12 @@ def _analyze_section(section: IniSection, root: Path, keys: int, client: str, ve
                 fallback_resources[value] = resource
     duplicates = {name: values for name, values in section.fields.items() if len(values) > 1}
     long_notes = []
-    for index in range(1, keys + 1):
+    long_note_indexes = range(keys) if client == "lazer" else range(1, keys + 1)
+    for index in long_note_indexes:
         long_notes.append(
             {
-                "column": index,
+                "column": index if client == "stable" else index + 1,
+                "field_index": index if client == "lazer" else None,
                 "head": paths.get(f"NoteImage{index}H"),
                 "body": paths.get(f"NoteImage{index}L"),
                 "tail": paths.get(f"NoteImage{index}T"),
@@ -316,6 +354,8 @@ def _analyze_section(section: IniSection, root: Path, keys: int, client: str, ve
             "effective": effective_body_style,
             "source": "configured" if body_style is not None else ("version default" if client == "lazer" else "not resolved"),
         },
+        "default_column_types": default_column_types,
+        "stage_columns": _stage_columns(keys, client),
         "paths": paths,
         "path_sources": path_sources,
         "fallback_candidates": fallback_candidates,
