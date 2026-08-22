@@ -65,10 +65,29 @@ def _read_ini(path: Path) -> tuple[str, str]:
 
 
 def parse_sections(text: str) -> list[IniSection]:
+    def remove_inline_comment(raw: str) -> str:
+        """Remove a whitespace-delimited // comment without breaking URLs/paths."""
+        quote: str | None = None
+        index = 0
+        while index < len(raw) - 1:
+            char = raw[index]
+            if char in {'"', "'"}:
+                if quote == char:
+                    quote = None
+                elif quote is None:
+                    quote = char
+                index += 1
+                continue
+            if quote is None and raw[index : index + 2] == "//":
+                if index == 0 or raw[index - 1].isspace():
+                    return raw[:index].rstrip()
+            index += 1
+        return raw.rstrip()
+
     sections: list[IniSection] = []
     current: IniSection | None = None
     for line_number, raw in enumerate(text.splitlines(), 1):
-        stripped = raw.strip()
+        stripped = remove_inline_comment(raw).strip()
         if not stripped or stripped.startswith(("//", ";")):
             continue
         match = re.fullmatch(r"\[([^]]+)\]", stripped)
@@ -76,8 +95,8 @@ def parse_sections(text: str) -> list[IniSection]:
             current = IniSection(match.group(1), line_number)
             sections.append(current)
             continue
-        if current is not None and ":" in raw:
-            key, value = raw.split(":", 1)
+        if current is not None and ":" in stripped:
+            key, value = stripped.split(":", 1)
             key = key.strip()
             if key:
                 current.fields[key].append(value.strip())
@@ -150,12 +169,13 @@ def _alpha_summary(path: Path) -> dict[str, object]:
 def _resource_files(root: Path, value: str) -> dict[str, object]:
     relative = value.strip().strip('"').replace("\\", "/")
     if relative in {"", "."}:
-        return {"value": value, "error": "resource path is empty", "files": []}
+        return {"value": value, "defined": False, "error": "resource path is empty", "files": []}
     root = root.resolve()
     requested = (root / relative).resolve()
     if not requested.is_relative_to(root):
         return {
             "value": value,
+            "defined": False,
             "error": "resource path escapes the skin directory",
             "files": [],
         }
@@ -187,6 +207,7 @@ def _resource_files(root: Path, value: str) -> dict[str, object]:
     location = "root" if resolved_base.parent == root else "subdirectory"
     return {
         "value": value,
+        "defined": bool(files),
         "relative_path": relative,
         "location": location,
         "resolved_base": str(resolved_base),
@@ -280,13 +301,15 @@ def _analyze_section(section: IniSection, root: Path, keys: int, client: str, ve
         effective_body_style = 0 if version < 2.5 else 3
 
     paths = {name: values[-1] for name, values in section.fields.items() if PATH_FIELD.match(name)}
+    configured_paths = set(paths)
     path_sources = {name: "configured" for name in paths}
+    fallback_candidates: dict[str, list[str]] = {}
     for name, default_path in DEFAULT_SHARED_PATHS.items():
+        fallback_candidates[name] = [default_path]
         if name not in paths:
             paths[name] = default_path
             path_sources[name] = "default"
 
-    fallback_candidates: dict[str, list[str]] = {}
     default_column_types = [_default_column_type(keys, index, client) for index in range(keys)]
     field_indexes = range(keys) if client == "lazer" else range(1, keys + 1)
 
@@ -315,8 +338,9 @@ def _analyze_section(section: IniSection, root: Path, keys: int, client: str, ve
             for candidate in candidates
         ):
             resource = _resource_files(root, value)
-            if resource.get("files"):
-                fallback_resources[value] = resource
+            # Keep missing fallbacks in the report: a merger needs to know
+            # whether the skin defines the default before copying it.
+            fallback_resources[value] = resource
     duplicates = {name: values for name, values in section.fields.items() if len(values) > 1}
     long_notes = []
     long_note_indexes = range(keys) if client == "lazer" else range(1, keys + 1)
@@ -359,6 +383,21 @@ def _analyze_section(section: IniSection, root: Path, keys: int, client: str, ve
         "paths": paths,
         "path_sources": path_sources,
         "fallback_candidates": fallback_candidates,
+        "fallback_defined": {
+            field_name: [
+                {
+                    "path": candidate,
+                    "defined": (
+                        fallback_resources.get(candidate, {}).get("defined")
+                        if dependencies
+                        else None
+                    ),
+                }
+                for candidate in candidates
+            ]
+            for field_name, candidates in fallback_candidates.items()
+        },
+        "configured_paths": sorted(configured_paths),
         "long_notes": long_notes,
         "resources": resources,
         "fallback_resources": fallback_resources,

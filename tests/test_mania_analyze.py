@@ -29,6 +29,50 @@ class ManiaAnalyzeTests(unittest.TestCase):
         sections = parse_sections(SKIN_INI)
         self.assertEqual([section.name for section in sections].count("Mania"), 2)
 
+    def test_parser_accepts_section_and_value_line_comments(self) -> None:
+        sections = parse_sections(
+            """[Mania] // source keycount
+            Keys: 6 // keep this section
+            NoteImage0: custom/note // custom path
+            """
+        )
+
+        self.assertEqual(len(sections), 1)
+        self.assertEqual(sections[0].name, "Mania")
+        self.assertEqual(sections[0].last("Keys"), "6")
+        self.assertEqual(sections[0].last("NoteImage0"), "custom/note")
+
+    def test_default_fallback_resources_report_definition(self) -> None:
+        text = """[Mania]
+        Keys: 6
+        StageBottom: custom/stage-bottom
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            custom = root / "custom"
+            custom.mkdir()
+            (root / "skin.ini").write_text(text, encoding="utf-8")
+            Image.new("RGBA", (8, 8), (1, 2, 3, 255)).save(root / "mania-stage-bottom.png")
+            Image.new("RGBA", (8, 8), (4, 5, 6, 255)).save(custom / "stage-bottom.png")
+            section = analyze_skin(root, 6, "lazer", True)["sections"][0]
+
+        self.assertEqual(section["path_sources"]["StageBottom"], "configured")
+        self.assertTrue(section["fallback_resources"]["mania-stage-bottom"]["defined"])
+        self.assertTrue(section["fallback_resources"]["mania-stage-bottom"]["base_exists"])
+        self.assertEqual(section["fallback_defined"]["StageBottom"][0]["path"], "mania-stage-bottom")
+        self.assertTrue(section["fallback_defined"]["StageBottom"][0]["defined"])
+
+    def test_missing_default_fallback_resources_are_reported_as_undefined(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "skin.ini"
+            path.write_text("[Mania]\nKeys: 6\n", encoding="utf-8")
+            section = analyze_skin(path, 6, "lazer", True)["sections"][0]
+
+        fallback = section["fallback_resources"]["mania-stage-bottom"]
+        self.assertFalse(fallback["defined"])
+        self.assertFalse(fallback["base_exists"])
+        self.assertFalse(section["fallback_defined"]["StageBottom"][0]["defined"])
+
     def test_selects_keycount_and_resolves_dependencies(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

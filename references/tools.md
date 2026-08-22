@@ -246,11 +246,12 @@ osu-skin mania-analyze "<SKIN_DIR_OR_INI>" --keys <N> --client <stable|lazer> --
 ### 输出判定
 
 - `matching_sections=0` 是失败/需确认 keycount；`matching_sections>1` 必须逐段确认，不能默认第一段。
-- `sections[].paths` 是该小节的实际配置或默认 path；`path_sources` 区分 `configured` 与 `default`。
-- `sections[].resources[field]` 读取 `relative_path`、`location`、`resolved_base`、`base_exists`、`hd_exists`、`base_alpha`、`hd_alpha`、`frames` 和 `hd_frames`。
+- `sections[].paths` 是该小节的实际配置或默认 path；`path_sources` 区分 `configured` 与 `default`。`configured_paths` 列出只在该小节显式出现的字段。
+- `sections[].resources[field]` 读取 `defined`、`relative_path`、`location`、`resolved_base`、`base_exists`、`hd_exists`、`base_alpha`、`hd_alpha`、`frames` 和 `hd_frames`。`defined=false` 表示皮肤目录没有提供该 path。
+- `sections[].fallback_resources[path]`（需 `--dependencies`）会保留每个默认/候选 path，即使文件不存在；读取其中的 `defined`/`base_exists` 判断默认回退是否由当前皮肤定义。`fallback_defined[field]` 提供按字段排列的候选及其 `defined` 状态；未启用依赖检查时状态为 `null`。
 - `base_alpha.status` 为 `fully_transparent` 时，资源存在但全透明，不能按缺失处理或自动替换。
 - lazer 的有效偶数 `Keys > 10` 会强制等分为双舞台；显式配置的 `ColumnLineWidth[Keys/2+1..Keys]` 中如有非零值，`sections[].warnings` 会报告这些 0-based 索引不参与列分隔线渲染。未配置字段产生的默认值不触发此警告。
-- 混皮时对源/目标的每个 `Keys:N` 建立 `来源 | Keys:N | 字段 | 实际 path | location | alpha | 输出 path` 矩阵；只修改实际消费者小节。
+- 混皮时对源/目标的每个 `Keys:N` 建立 `来源 | Keys:N | 字段 | 实际 path | location | defined | alpha | 输出 path` 矩阵；只修改实际消费者小节。目标根目录已经定义的默认 `mania-stage-bottom` 等资源不能被来源默认文件直接覆盖。
 
 ## mania-throw-length
 

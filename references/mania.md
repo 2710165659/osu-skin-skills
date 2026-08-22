@@ -68,7 +68,7 @@
 
 同一皮肤可以包含多个重复的 `[Mania]` 段；每个 `Keys:N` 都是独立的资源消费者。必须对每个 keycount 单独读取实际 `skin.ini` path，再解析根目录或子目录中的 SD、`@2x` 和动画帧。`mania-hit300`、`mania-lightingN` 等同名文件只在 path 相同且被同一小节引用时才属于同一资源组；不能因为文件名相同就跨 keycount 合并。
 
-运行 `mania-analyze --dependencies --json` 时，记录每个资源的 `relative_path`、`location`、`resolved_base`、`base_exists`、`hd_exists` 和 `base_alpha.status`。`fully_transparent` 是“存在且全透明”的证据，可能是关闭灯光或保留布局的占位图；不要把它当成缺失，也不要自动用其他目录的可见同名图替换。需要改变该 keycount 的视觉时，复制可见资源并只修改该 `Keys:N` 小节的对应字段。
+运行 `mania-analyze --dependencies --json` 时，记录每个资源的 `defined`、`relative_path`、`location`、`resolved_base`、`base_exists`、`hd_exists` 和 `base_alpha.status`；默认候选另看 `fallback_resources`/`fallback_defined`。`defined=false` 表示当前皮肤没有提供该 path，不能把来源皮肤的同名默认文件直接叠加到目标根目录。`fully_transparent` 是“存在且全透明”的证据，可能是关闭灯光或保留布局的占位图；不要把它当成缺失，也不要自动用其他目录的可见同名图替换。需要改变该 keycount 的视觉时，复制可见资源并只修改该 `Keys:N` 小节的对应字段。
 
 ## 长按视觉与路径映射
 

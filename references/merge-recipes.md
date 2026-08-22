@@ -79,25 +79,23 @@
 
 ### Mania keycount
 
-只复制源的 `Keys: N` 段及其完整依赖；依赖清单、lazer 缩放和修复顺序以 `mania.md`、`lazer-image-scaling.md` 为准。这里仅补充混皮约束：保留目标其他 keycount；同一路径被不同 keycount 或列宽使用时拆分路径并同步重写；未检查的依赖不得宣称适配完成。
+只合并来源的 `Keys:N` 小节及其实际依赖，目标其他 keycount 保持不变。依赖清单、lazer 缩放和修复顺序分别看 `mania.md`、`lazer-image-scaling.md`；同一路径若被不同 keycount 或列宽使用，先拆分路径再改配置。
 
-### Mania 多 keycount 的实际 path 矩阵
-
-合并 4K、7K 或其他多个 Mania keycount 时，不能按文件名或目录名猜测资源归属。对每个来源皮肤和目标皮肤的每个 `Keys:N` 分别运行：
+对来源和目标的每个 `Keys:N` 分别运行：
 
 ```text
 osu-skin mania-analyze "<皮肤目录或 skin.ini>" --keys <N> --client <stable|lazer> --dependencies --json
 ```
 
-将输出整理为 `来源皮肤 | Keys:N | 字段 | skin.ini 实际 path | location | 文件是否存在 | base_alpha.status | 输出 path`。以该 `Keys:N` 小节的实际 `path` 为消费者关系的唯一配置证据：
+把输出整理为 `来源 | Keys:N | 字段 | path | location | defined | base_alpha.status | 输出 path`。`path` 是该小节的唯一配置证据，`defined` 表示皮肤目录是否真的提供该资源：
 
-- `location=root` 与 `location=subdirectory` 是不同候选；同名 `mania-hit300`、`mania-lightingN`、`mania-lightingL` 或其他 `mania-*` 文件不得互相覆盖。
-- 每个 `Keys:N` 独立处理 `Hit0/50/100/200/300/300g`、`LightingN/L`、`WarningArrow`、`Stage*`、`KeyImage#`、`NoteImage#` 及 `H/L/T`。根目录默认文件只是未配置 path 时的候选，不代表所有 keycount 都消费它。
-- 复制资源到新目录后，只回写实际使用该资源的对应 `[Mania] Keys:N` 小节；不要为了 7K 的子目录 path 改写 4K 或其他小节。
-- `base_alpha.status=fully_transparent` 表示文件存在但可能是有意的透明占位，不等于缺失。即使另一来源存在同名可见文件，也必须保留透明文件，除非用户明确要求替换或矩阵已确认该 keycount 应改用另一 path。
-- `configured` path 优先于默认 path；path、文件存在性或 alpha 未确认时，暂停写入并列为待确认项。
+- `location=root` 和 `location=subdirectory` 必须分开；不要把同名 `mania-*` 文件复制到根目录后让它覆盖目标的默认资源。
+- `configured` path 优先于默认 path。默认回退也要单独记录 `defined=true/false`；例如目标根目录已有 `mania-stage-bottom.png` 时，它会继续作为未配置 `StageBottom` 的回退，不能被来源 6K 的默认文件静默叠加。
+- 来源字段没有显式 path 时，先将来源默认资源复制到独立子目录并在导入的 `[Mania] Keys:N` 中写成显式 path；若要保留目标回退，则不要复制该来源默认文件。
+- `Hit*`、`Lighting*`、`WarningArrow`、`Stage*`、`KeyImage#`、`NoteImage#` 及 `H/L/T` 均按 keycount 独立处理；不要因 7K 的 path 改写 4K。
+- `base_alpha.status=fully_transparent` 是“存在但全透明”，不是缺失；除非用户确认替换，否则保留它。
 
-只有矩阵中每个目标 keycount 的 path、资源位置和透明状态都已确认，才执行复制、重命名或 `skin.ini` 修改。
+只有每个目标 keycount 的 path、位置、`defined` 和透明状态都确认后，才复制、重命名或回写 `skin.ini`。
 
 ### hitsound
 
